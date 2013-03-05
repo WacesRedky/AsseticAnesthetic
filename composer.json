@@ -1,0 +1,23 @@
+{
+	"name": "robmccann/asseticanesthetic",
+	"type": "library",
+	"description": "An abstraction layer to enable managing of assets via a config array. A different way of implementing Assetic.",
+	"keywords": ["Helper", "Utility", "Assetic", "Asset Manager"],
+	"homepage": "https://github.com/robmccann/asseticanesthetic",
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "Rob McCann",
+			"email": "rob@robmccann.co.uk"
+		}
+	],
+	"require": {
+		"php": ">=5.3.3",
+		"kriswallsmith/assetic": "1.1.*@dev",
+		"fuelphp/common": "dev-develop"
+	},
+	"autoload": {
+    	"psr-0": {"AsseticAnesthetic": "src/"}
+    },
+	"minimum-stability": "dev"
+}
