@@ -13,7 +13,7 @@
 	],
 	"require": {
 		"php": ">=5.3.3",
-		"kriswallsmith/assetic": "1.1.*@dev",
+		"kriswallsmith/assetic": "v1.1.0-alpha2",
 		"fuelphp/common": "dev-develop"
 	},
 	"autoload": {
