@@ -1,9 +1,10 @@
 <?php
 
 /**
-* Part of the FuelPHP framework.
+* A simple wrapper for Assetic that speeds up development time.
+* An abstraction layer to enable managing of assets via a config array. A different way of implementing Assetic.
 *
-* @package    RobMcCann\AsseticAnesthetic
+* @package    AsseticAnesthetic
 * @version    0.1
 * @license    MIT License
 * @copyright  2013 Rob McCann
