@@ -11,7 +11,7 @@ Installation is via Composer. Add the following to your ```composer.json``` file
 ```
 {
     "require": {
-        "rob-mccann/asseticanesthetic": "1.0"
+        "rob-mccann/asseticanesthetic": "0.1"
     }
 }
 ```
