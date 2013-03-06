@@ -43,6 +43,14 @@ class SimpleAssetManager {
         'css' => array(),
     );
 
+    protected $filterManager = null;
+    protected $assetFactory = null;
+    protected $assetWriter = null;
+
+    protected $filters = array();
+
+
+
     /**
     * Instanciates the AssetManager. For the most part, you'll only ever need one instance.
     * @param array $config the config array that contains your assets and options
@@ -60,24 +68,22 @@ class SimpleAssetManager {
      * @return AssetManager         returns itself for method chaining
      */
     public function enable($groupName, $type = null) {
-        $set = array();
 
         switch($type) {
             case static::CSS:
-                $set["groups.css.$groupName.enabled"] = true;
+                Arr::set($this->config, "groups.css.$groupName.enabled", true);
                 break;
             case static::JAVASCRIPT:
-                $set["groups.js.$groupName.enabled"] = true;
+                Arr::set($this->config, "groups.js.$groupName.enabled", true);
                 break;
             case null:
-                $set["groups.css.$groupName.enabled"] = true;
-                $set["groups.js.$groupName.enabled"] = true;
+                Arr::set($this->config, "groups.css.$groupName.enabled", true);
+                Arr::set($this->config, "groups.js.$groupName.enabled", true);
                 break;
             default:
                 throw new \OutOfBoundsException('The provided type does not exist');
         }
-
-        Arr::set($this->config, $set);
+       
         return $this;
     }
 
@@ -90,24 +96,21 @@ class SimpleAssetManager {
      * @return AssetManager         returns itself for method chaining
      */
     public function disable($groupName, $type = null) {
-        $set = array();
 
-        switch($type) {
+       switch($type) {
             case static::CSS:
-                $set["groups.css.$groupName.enabled"] = false;
+                Arr::set($this->config, "groups.css.$groupName.enabled", false);
                 break;
             case static::JAVASCRIPT:
-                $set["groups.js.$groupName.enabled"] = false;
+                Arr::set($this->config, "groups.js.$groupName.enabled", false);
                 break;
             case null:
-                $set["groups.css.$groupName.enabled"] = false;
-                $set["groups.js.$groupName.enabled"] = false;
+                Arr::set($this->config, "groups.css.$groupName.enabled", false);
+                Arr::set($this->config, "groups.js.$groupName.enabled", false);
                 break;
             default:
                 throw new \OutOfBoundsException('The provided type does not exist');
         }
-
-        Arr::set($this->config, $set);
         return $this;
     }
 
@@ -122,7 +125,7 @@ class SimpleAssetManager {
      * @return string            the <link> html tags to the relevant CSS.
      */
     public function renderCss($groupName = null) {
-        return $this->render($group, static::CSS);
+        return $this->render($groupName, static::CSS);
     }
 
     /**
@@ -136,7 +139,7 @@ class SimpleAssetManager {
      * @return string            the <script> html tags to the relevant JS files.
      */
     public function renderJs($groupName = null) {
-        return $this->render($group, static::JAVASCRIPT);
+        return $this->render($groupName, static::JAVASCRIPT);
     }
 
     /**
@@ -153,8 +156,12 @@ class SimpleAssetManager {
     public function render($groupName = null, $type = null) {
         
         $html = '';
+
+        if (!isset($this->config['groups'])) {
+            return '';
+        }
        
-        foreach ($this->config['groups'] as $configType) {
+        foreach (array_keys($this->config['groups']) as $configType) {
             if (!isset($this->config['groups'][$configType])) {
                 continue;
             }
@@ -163,7 +170,11 @@ class SimpleAssetManager {
                 continue;
             }
 
-            foreach($this->config['groups']['type'] as $name => $group) {
+            if ($groupName !== null) {
+                $html .= $this->renderGroup($groupName, $this->config['groups'][$configType][$groupName], $configType);
+                continue;
+            }
+            foreach($this->config['groups'][$configType] as $name => $group) {
                 $html .= $this->renderGroup($name, $group, $configType);
             }
         }
@@ -180,6 +191,7 @@ class SimpleAssetManager {
     protected function renderGroup($name, $params, $type) {
         // is the group enabled?
         if ($params['enabled'] === false) {
+            echo 'asdf';
             return '';
         }
         
@@ -190,46 +202,116 @@ class SimpleAssetManager {
 
         $this->rendered[$type][$name] = true;
 
-        $assetCollection = $this->arrayToCollection($params, $type);
 
         $html = '';
 
         $tagFunctionName = $type.'Tag';
         // no filters or compression, just spit out the tags
-        if (!isset($params['filters']) or !$params['filters']) {
-
-            foreach($assetCollection->all() as $asset) {
-                $html .= $this->$tagFunctionName($asset->path());
+        if (!isset($params['filters']) or !$params['filters']) {   
+            foreach($params['files'] as $file) {
+                $url = $this->parseFileConfig($file, $type);
+                $html .= $this->$tagFunctionName($url);
             }
 
             return $html;
         }
+        $assetCollection = $this->arrayToCollection($params, $type);
+        
+        $options = array('output' => '*.'.$type);
 
+        $factory = $this->getAssetFactory();
 
-        foreach ($filters as $filter) {
-            if ('?' != $filter[0]) {
-                $collection->ensureFilter($factory->getFilterManager()->get($filter));
-            } elseif (!$config['debug']) {
-                $collection->ensureFilter($factory->getFilterManager()->get(substr($filter, 1)));
-            }
-        }
-        $collection->setTargetPath(
+        $assetCollection->setTargetPath(
             str_replace(
                 '*',
-                $factory->generateAssetName($config['groups'][$key][$title]['files'], $filters, $options),
+                $factory->generateAssetName($params['files'], $params['filters'], $options),
                 $options['output']
             )
         );
-        
+
+        $html = $this->$tagFunctionName('/assets/cache/'.$assetCollection->getTargetPath());
+
+
+        foreach ($params['filters'] as $filter) {
+            $this->getFactoryWithFilter($filter);
+            $assetCollection->ensureFilter($this->filters[$filter]);
+        }
 
         $cache = new AssetCache(
-            $collection,
-            new FilesystemCache(self::_cache_path().'/cache')
+            $assetCollection,
+            new FilesystemCache($this->cachePath().'/cache')
         );
 
         self::getAssetWriter()->writeAsset($cache);
-        $out .= static::$func('/assets/cache/'.$collection->getTargetPath());
-    }  
+
+        return $html;
+    }
+
+    protected function getFactoryWithFilter($filterName) {
+
+        // normalise
+        $filterName = strtolower($filterName);
+        $factory = $this->getAssetFactory();
+        if (!array_key_exists($filterName, $this->filters)) {
+            // get the object
+            $func = 'getFilter'.ucfirst($filterName);
+            $this->filters[$filterName] = $this->$func();
+
+            $factory->getFilterManager()->set($filterName,  $this->filters[$filterName]);
+        }
+
+        return $factory;
+    }
+
+    protected function getFilterYuicss() {
+        return new Yui\CssCompressorFilter($this->config['yuicompressor']);
+    }
+
+    protected function getFilterYuijs() {
+        return new Yui\JsCompressorFilter($this->config['yuicompressor']);
+    }
+
+    protected function getFilterCompass() {
+        $assetPath = $this->assetPath();
+        $cachePath = $this->cachePath();
+        $compass = new CompassFilter('/usr/local/bin/compass');
+        $compass->setHttpPath('/assets/');
+        $compass->setImagesDir($assetPath.'/img');
+        $compass->setHttpGeneratedImagesPath('img');
+        $compass->setGeneratedImagesPath($cachePath .'/img');
+        $compass->setJavascriptsDir($assetPath.'/js');
+        $compass->setHttpJavascriptsPath('assets/js');
+        $compass->setNoCache(true);
+        $compass->setScss(true);
+
+        return $compass;
+    }
+
+    protected function getAssetFactory() {
+        // TODO get rid of singletons
+        if ($this->assetFactory === null) {
+            $this->assetFactory = new AssetFactory($this->cachePath());
+            $this->assetFactory->setFilterManager($this->getFilterManager());
+        }
+        return $this->assetFactory;
+    }
+
+    protected function getFilterManager() {
+        // TODO get rid of singletons
+        if ($this->filterManager === null) {
+            $this->filterManager = & new FilterManager();
+        }
+
+        return $this->filterManager;
+    }
+
+    protected function getAssetWriter()
+    {
+        if ($this->assetWriter === null) {
+            $this->assetWriter = & new AssetWriter($this->cachePath());
+        }
+        return $this->assetWriter;
+    }
 
     /**
      * Where your assets are kept. We automatically append js/css to your paths so no need to include those.
@@ -245,8 +327,7 @@ class SimpleAssetManager {
         {
             return $this->config['assetPath'];
         }
-        
-        return realpath(__DIR__ . '/../../public/assets');
+        return realpath('./assets');
     }
 
     /**
@@ -259,7 +340,7 @@ class SimpleAssetManager {
         {
             return $this->config['assetUrl'];
         }
-        
+
         return '/assets';
     }
 
@@ -296,20 +377,26 @@ class SimpleAssetManager {
         $files = array();
         foreach($group['files'] as $file) {
 
-            $url = $this->parseFileConfig($file, $key);
-
+            $url = $this->parseFileConfig($file, $type);
             if (
                 $this->strStartsWith($url, '//') or 
                 $this->strStartsWith($url, 'http://') or 
                 $this->strStartsWith($url, 'https://') 
             ) {
                 $files[] = new HttpAsset($url);
+            } else if($this->strStartsWith($url, '..')) {
+                $files[] = new GlobAsset(realpath($url));
             } else {
                 $files[] = new GlobAsset(substr($url,1));
             }
         }
 
         return new AssetCollection($files);
+    }
+
+    protected function strStartsWith($haystack, $needle)
+    {
+        return !strncmp($haystack, $needle, strlen($needle));
     }
 
     /**
@@ -320,7 +407,11 @@ class SimpleAssetManager {
      * @return string       the url path of the asset.
      */
     protected function parseFileConfig($path, $type) {
-        $config = self::$config;
+        $config = $this->config;
+
+        if (is_array($path)) {
+            $path = $path[0];
+        }
 
         $pos = strpos($path, '::');
 
@@ -330,16 +421,19 @@ class SimpleAssetManager {
             {
                 if(substr($path, 0, $pos) == $key)
                 {
+
+                    
                     if (is_array($location))
                     {
-                        $type = Arr::get($location, $type.'_dir', $type);
-
-                        if ($type and substr($type, -1) != '/')
-                        {
-                            $type .= '/';
-                        }
+                    $type = Arr::get($location, $type.'_dir', $type .'/');
+                        
 
                         $location = $location['path'];
+                    }
+
+                    if ($type and substr($type, -1) != '/')
+                    {
+                        $type .= '/';
                     }
 
                     // a little something for google web fonts
@@ -347,8 +441,8 @@ class SimpleAssetManager {
                     {
                         $type = rtrim($type, '/');
                     }
-
                     $path = $location . $type .substr($path, $pos+2);
+
                     break;
                 }
             }
@@ -365,7 +459,7 @@ class SimpleAssetManager {
         return '<link rel="stylesheet" href="'.$url.'">';
     }
 
-    protected static function javascriptTag($url) {
+    protected static function jsTag($url) {
         return '<script type="text/javascript" src="'.$url.'"></script>';
     }
 }
