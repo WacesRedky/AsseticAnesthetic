@@ -1,5 +1,5 @@
 {
-	"name": "robmccann/asseticanesthetic",
+	"name": "rob-mccann/asseticanesthetic",
 	"type": "library",
 	"description": "An abstraction layer to enable managing of assets via a config array. A different way of implementing Assetic.",
 	"keywords": ["Helper", "Utility", "Assetic", "Asset Manager"],
