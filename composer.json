@@ -2,7 +2,7 @@
 	"name": "rob-mccann/asseticanesthetic",
 	"type": "library",
 	"description": "An abstraction layer to enable managing of assets via a config array. A different way of implementing Assetic.",
-	"keywords": ["Helper", "Utility", "Assetic", "Asset Manager"],
+	"keywords": ["Assets", "Helper", "Utility", "Assetic", "Asset Manager"],
 	"homepage": "https://github.com/robmccann/asseticanesthetic",
 	"license": "MIT",
 	"authors": [
